@@ -12,9 +12,278 @@ knitr::opts_chunk$set(
 )
 
 library(tidyverse)
+library(rvest)
+
+set.seed(1)
 
 theme_set(theme_bw() + theme(legend.position = "bottom"))
 ```
 
+```{r}
+z_scores = function(x){
+  (x - mean(x)) / sd(x)
+}
+```
 
+check z-scores function
+
+```{r}
+unif_sample = runif(100)
+
+z_scores(unif_sample)
+```
+
+```{r}
+z_scores(3)
+
+z_scores("my name is jeff")
+
+z_scores(iris)
+
+z_scores(sample(c(TRUE, FALSE), 25, replace = TRUE))
+```
+
+put in some checks on inputs...
+
+```{r}
+checked_z_scores = function(x) {
+  
+  if (!is.numeric(x)) {
+    stop("Argument x should be numeric")
+  } else if (length(x) == 1) {
+    stop("Z scores cannot be computed for length 1 vectors")
+  }
+  
+  z = mean(x) / sd(x)
+  
+  z
+}
+```
+
+```{r}
+checked_z_scores(3)
+
+checked_z_scores("my name is jeff")
+
+checked_z_scores(iris)
+
+checked_z_scores(sample(c(TRUE, FALSE), 25, replace = TRUE))
+```
+
+# multiple output
+
+```{r}
+mean_and_sd = function(x) {
+  
+  if (!is.numeric(x)) {
+    stop("Argument x should be numeric")
+  } else if (length(x) == 1) {
+    stop("Z scores cannot be computed for length 1 vectors")
+  }
+  
+  mean_x = mean(x)
+  sd_x = sd(x)
+  
+  c(mean_x, sd_x)
+}
+
+mean_and_sd(unif_sample)
+```
+
+more clear output by let output be tibble
+
+```{r}
+mean_and_sd = function(x) {
+  
+  if (!is.numeric(x)) {
+    stop("Argument x should be numeric")
+  } else if (length(x) == 1) {
+    stop("Z scores cannot be computed for length 1 vectors")
+  }
+  
+  tibble(
+    mean_x = mean(x),
+    sd_x = sd(x))
+  
+}
+
+mean_and_sd(unif_sample)
+```
+
+# Multiple inputs
+
+Look at simple linear regression!
+
+```{r}
+sim_data = tibble(
+  x = rnorm(30, 1, 1),
+  y = 2 + 3 * x + rnorm(30, 0, 1)
+) 
+
+sim_data %>% 
+  ggplot(aes(x = x, y = y)) + geom_point()
+
+ls_fit = lm(y ~ x, data = sim_data)
+
+beta0_hat = coef(ls_fit)[1]
+beta0_hat = coef(ls_fit)[2]
+```
+
+```{r}
+sim_regression = function(n, beta0, beta1) {
+  sim_data = tibble(
+  x = rnorm(n, 1, 1),
+  y = beta0 + beta1 * x + rnorm(n, 0, 1)
+) 
+
+ ls_fit = lm(y ~ x, data = sim_data)
+
+tibble(
+  beta0_hat = coef(ls_fit)[1], 
+  beta1_hat = coef(ls_fit)[2])
+}
+```
+
+check funtion
+
+```{r}
+sim_regression(30, 2, 3)
+
+# if this isn't a common used function, we would better add the parameter names.
+
+sim_regression(3000, 2, 3)
+```
+
+```{r, eval = FALSE}
+url = "https://www.amazon.com/product-reviews/B00005JNBQ/ref=cm_cr_arp_d_viewopt_rvwer?ie=UTF8&reviewerType=avp_only_reviews&sortBy=recent&pageNumber=1"
+
+dynamite_html = read_html(url)
+
+review_titles = dynamite_html %>%
+  html_nodes("#cm_cr-review_list .review-title") %>%
+  html_text()
+
+review_stars = dynamite_html %>%
+  html_nodes("#cm_cr-review_list .review-rating") %>%
+  html_text()
+
+review_text = dynamite_html %>%
+    html_nodes(".review-data:nth-child(4)") %>%
+    html_text()
+
+reviews = tibble(
+  title = review_titles,
+  stars = review_stars,
+  text = review_text
+)
+```
+
+```{r}
+extract_reviews = function(url) {
+  library(rvest)
+  
+  dynamite_html = read_html(url)
+
+ review_titles = dynamite_html %>%
+   html_nodes("#cm_cr-review_list .review-title") %>%
+   html_text()
+
+ review_stars = dynamite_html %>%
+   html_nodes("#cm_cr-review_list .review-rating") %>%
+   html_text()
+
+ review_text = dynamite_html %>%
+     html_nodes(".review-data:nth-child(4)") %>%
+     html_text()
+
+ reviews = tibble(
+   title = review_titles,
+   stars = review_stars,
+   text = review_text)
+ 
+ reviews
+}
+```
+
+```{r}
+url = "https://www.amazon.com/product-reviews/B00005JNBQ/ref=cm_cr_arp_d_viewopt_rvwer?ie=UTF8&reviewerType=avp_only_reviews&sortBy=recent&pageNumber=1"
+
+extract_reviews(url)
+```
+
+```{r}
+url_base = "https://www.amazon.com/product-reviews/B00005JNBQ/ref=cm_cr_arp_d_viewopt_rvwer?ie=UTF8&reviewerType=avp_only_reviews&sortBy=recent&pageNumber="
+urls = str_c(url_base, 1:5)
+
+dynamite_reviews = bind_rows(
+  read_page_reviews(urls[1]),
+  read_page_reviews(urls[2]),
+  read_page_reviews(urls[3]),
+  read_page_reviews(urls[4]),
+  read_page_reviews(urls[5])
+)
+
+dynamite_reviews
+```
+
+self assessment
+
+```{r}
+read_table = function(read_range, movie_name) {
+  readxl::read_excel("./data/LotR_Words.xlsx", range = read_range) %>%
+    mutate(movie = movie_name)
+}
+```
+
+```{r}
+fellowship_ring = readxl::read_excel("./data/LotR_Words.xlsx", range = "B3:D6") %>%
+  mutate(movie = "fellowship_ring")
+
+two_towers = readxl::read_excel("./data/LotR_Words.xlsx", range = "F3:H6") %>%
+  mutate(movie = "two_towers")
+
+return_king = readxl::read_excel("./data/LotR_Words.xlsx", range = "J3:L6") %>%
+  mutate(movie = "return_king")
+
+lotr_tidy = bind_rows(fellowship_ring, two_towers, return_king) %>%
+  janitor::clean_names() %>%
+  gather(key = sex, value = words, female:male) %>%
+  mutate(race = tolower(race)) %>% 
+  select(movie, everything()) 
+```
+
+
+```{r}
+read_table("B3:D6", "fellowship_ring")
+```
+
+input is function
+
+```{r}
+x = rnorm(25, 0, 1)
+
+my_summary = function(x, summ_func) {
+  summ_func(x)
+}
+
+my_summary(x, sd)
+
+my_summary(x, IQR)
+
+my_summary(x, var)
+```
+
+scoping...
+
+```{r}
+f = function(x) {
+  z = x + y
+  z
+}
+
+x = 1
+y = 2
+
+f(x = y)
+```
 
