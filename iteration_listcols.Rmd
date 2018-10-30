@@ -1,0 +1,204 @@
+---
+title: "Iteration_listcols"
+output: github_document
+---
+
+```{r}
+library(tidyverse)
+
+set.seed(1)
+```
+
+```{r}
+vec_numeric = 5:8
+vec_char = c("My", "name", "is", "Jeff")
+vec_logical = c(TRUE, TRUE, TRUE, FALSE)
+
+l = list(vec_numeric = 5:8,
+         mat         = matrix(1:8, 2, 4),
+         vec_logical = c(TRUE, FALSE),
+         summary     = summary(rnorm(1000)))
+
+l
+```
+
+# for loops
+
+```{r}
+df = data_frame(
+  a = rnorm(20, 3, 1),
+  b = rnorm(20, 0, 5),
+  c = rnorm(20, 10, .2),
+  d = rnorm(20, -3, 1)
+)
+
+is.list(df)
+
+df[[2]]   
+```
+
+```{r}
+mean_and_sd = function(x) {
+  
+  if (!is.numeric(x)) {
+    stop("Argument x should be numeric")
+  } else if (length(x) == 1) {
+    stop("Z scores cannot be computed for length 1 vectors")
+  }
+  
+  mean_x = mean(x)
+  sd_x = sd(x)
+  
+  c(mean_x, sd_x)
+}
+```
+
+apply function to `df`
+
+```{r}
+mean_and_sd(df[[1]])
+mean_and_sd(df[[2]])
+mean_and_sd(df[[3]])
+mean_and_sd(df[[4]])
+```
+
+write a for loop
+
+```{r}
+output1 = vector("list", length = 4)     #????????two square brackets
+
+for (i in 1:4){
+  output1[[i]] = mean_and_sd(df[[i]])     
+}
+
+output1
+```
+
+# map statement
+
+let's replace `for` with `map`
+
+```{r}
+output2 = map(df, mean_and_sd)
+
+output2[1]
+```
+
+other map function
+
+```{r}
+output = map_df(df, mean_and_sd)
+```
+
+# code syntax
+
+be clear about arguments
+
+```{r}
+output = map(.x = df, ~ mean(x = .x, na.rm = TRUE))
+output
+```
+
+more complicate function
+
+```{r, eval = FALSE}
+lotr_data = map2_df(
+  .x = cell_ranges, .y = movie_names, 
+  ~lotr_load_and_tidy(path = "./data/LotR_Words.xlsx", range = .x, movie_name = .y))
+```
+
+assessment
+
+```{r}
+read_page_reviews <- function(url) {
+  
+  library(rvest)
+  
+  h = read_html(url)
+  
+  title = h %>%
+    html_nodes("#cm_cr-review_list .review-title") %>%
+    html_text()
+  
+  stars = h %>%
+    html_nodes("#cm_cr-review_list .review-rating") %>%
+    html_text() %>%
+    str_extract("\\d") %>%
+    as.numeric()
+  
+  text = h %>%
+    html_nodes(".review-data:nth-child(4)") %>%
+    html_text()
+  
+  data_frame(title, stars, text)
+}
+
+url_base = "https://www.amazon.com/product-reviews/B00005JNBQ/ref=cm_cr_arp_d_viewopt_rvwer?ie=UTF8&reviewerType=avp_only_reviews&sortBy=recent&pageNumber="
+vec_urls = str_c(url_base, 1:5)
+
+reviews_output = map(vec_urls, read_page_reviews)
+```
+
+# List colums ...
+
+```{r}
+library(rnoaa)
+
+weather = 
+  meteo_pull_monitors(c("USW00094728", "USC00519397", "USS0023B17S"),
+                      var = c("PRCP", "TMIN", "TMAX"), 
+                      date_min = "2016-01-01",
+                      date_max = "2016-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY", 
+                      USC00519397 = "Waikiki_HA",
+                      USS0023B17S = "Waterhole_WA"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+```
+
+```{r}
+#centralpark = weather %>% filter(...)
+
+weather_nest =
+  weather %>% 
+  nest(date:tmin)
+```
+
+```{r}
+weather_nest %>% 
+  pull(data)
+```
+
+```{r}
+lm(tmax ~ tmin, data = weather_nest$data[[1]])
+```
+
+write a function
+
+```{r}
+weather_lm = function(df){
+  
+  lm(tmax ~ tmin, data = df)
+}
+
+weather_lm(df = weather_nest$data[[1]])
+```
+
+```{r}
+map(weather_nest$data, weather_lm)
+```
+
+Save output as a new list column...
+
+```{r}
+weather_nest %>% 
+  mutate(lm_results = map(data, weather_lm))
+```
+
+
+```{r}
+weather_nest %>% 
+  unnest()
+```
