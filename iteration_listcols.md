@@ -17,6 +17,23 @@ library(tidyverse)
     ## ✖ dplyr::lag()    masks stats::lag()
 
 ``` r
+library(rvest)
+```
+
+    ## Loading required package: xml2
+
+    ## 
+    ## Attaching package: 'rvest'
+
+    ## The following object is masked from 'package:purrr':
+    ## 
+    ##     pluck
+
+    ## The following object is masked from 'package:readr':
+    ## 
+    ##     guess_encoding
+
+``` r
 set.seed(1)
 ```
 
@@ -221,19 +238,6 @@ vec_urls = str_c(url_base, 1:5)
 reviews_output = map(vec_urls, read_page_reviews)
 ```
 
-    ## Loading required package: xml2
-
-    ## 
-    ## Attaching package: 'rvest'
-
-    ## The following object is masked from 'package:purrr':
-    ## 
-    ##     pluck
-
-    ## The following object is masked from 'package:readr':
-    ## 
-    ##     guess_encoding
-
 List colums ...
 ===============
 
@@ -412,3 +416,30 @@ weather_nest %>%
     ##  9 CentralPark_NY USW00094728 2016-01-09     0   8.3   4.4
     ## 10 CentralPark_NY USW00094728 2016-01-10   457  15     4.4
     ## # ... with 1,088 more rows
+
+``` r
+dynamite_reviews = 
+  tibble(page = 1:5,
+         urls = str_c(url_base, page)) %>% 
+  mutate(reviews = map(vec_urls, read_page_reviews)) %>% 
+  unnest()
+```
+
+``` r
+lotr_cell_ranges = 
+  tibble(
+    movie = c("fellowship_ring", "two_towers", "return_king"),
+    cells = c("B3:D6", "F3:H6", "J3:L6")
+  )
+
+lotr_tidy = 
+  lotr_cell_ranges %>% 
+  mutate(
+    word_data = map(cells, ~readxl::read_excel("./data/LotR_Words.xlsx", range = .x))
+  ) %>% 
+  unnest() %>% 
+  janitor::clean_names() %>% 
+  gather(key = sex, value = words, female:male) %>%
+  mutate(race = tolower(race)) %>% 
+  select(movie, everything(), -cells) 
+```
